@@ -1,0 +1,118 @@
+
+.game {
+    height: 60vmin;
+    width: 50vmin;
+}
+.simon-wrapper {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-gap: 5px;
+    animation: Game-Table-Spin infinite 15s linear;
+}
+
+@keyframes Game-Table-Spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.simon-wrapper div {
+    aspect-ratio: 1;
+//box-shadow: 5px 5px 8px blue, 10px 10px 8px red, 15px 15px 8px yellow, 20px 20px 8px green;
+}
+
+@keyframes highlight-red {
+    from {
+        background: #ff0000;
+        box-shadow: 0 0 25px red;
+    }
+    to { background: #aa0000;
+        box-shadow: 0 0 0 grey;
+    }
+}
+.simon-br2.active {
+    animation: highlight-red 1s;
+}
+
+.simon-br {
+    width: 100%;
+    height: 100%;
+    background: #aa0000;
+    border-radius: 25% 5% 100% 5%;
+}
+.simon-br.active {
+    background: #ff0000;
+    box-shadow: 0 0 25px red;
+}
+
+.simon-bl.active {
+    background: #4444ff;
+    box-shadow: 0 0 25px #4444ff;
+}
+
+@keyframes highlight-blue {
+    from { background: #4444ff;
+        box-shadow: 0 0 25px #4444ff;
+    }
+    to { background:  #000099;
+        box-shadow: 0 0 0 grey;
+    }
+}
+.simon-bl2.active {
+    animation: highlight-blue 1s;
+}
+
+.simon-bl{
+    width: 100%;
+    height: 100%;
+    background: #000099;
+    border-radius: 5% 25% 5% 100%;
+}
+
+@keyframes highlight-green {
+    from { background: #66ff66;
+        box-shadow: 0 0 25px #66ff66;
+    }
+    to { background:  #009900;
+        box-shadow: 0 0 0 grey;
+    }
+}
+.simon-tr2.active {
+    animation: highlight-green 1s;
+}
+
+.simon-tr{
+    width: 100%;
+    height: 100%;
+    background: #009900;
+    border-radius: 5% 100% 5% 25%;
+}
+.simon-tr.active {
+    background: #66ff66;
+    box-shadow: 0 0 25px #66ff66;
+}
+
+@keyframes highlight-yellow {
+    from { background: yellow;
+        box-shadow: 0 0 25px yellow;
+    }
+    to { background:  orange;
+        box-shadow: 0 0 0 grey;
+    }
+}
+.simon-tl2.active {
+    animation: highlight-yellow 1s;
+}
+.simon-tl{
+    width: 100%;
+    height: 100%;
+    background: orange;
+    border-radius: 100% 5% 25% 5%;
+}
+.simon-tl.active {
+    background: yellow;
+    box-shadow: 0 0 25px yellow;
+}
