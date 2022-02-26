@@ -2,12 +2,14 @@
 
 This is a simple implementation of the Electronic Simon Game
 
+![Game Image](./screenshot.png)
+
 For information on the game: [Simon Wikipedia](https://en.wikipedia.org/wiki/Simon_(game))
 
 Interesting features
 
 * Although the board is drawn to look like the electronic simon game, it uses CSS to modify squares to produce the circular look of the application.
-* The audio is created through the audio context and the oscillator node. It produces sounds very similar to the original electronic game.
+* The audio is created through the audio context and the oscillator node (no wav/mp3 files). It produces sounds very similar to the original electronic game.
 * This abuses react-redux to update state between the navbar and the game itself.
 * Uses [reactstrap](https://reactstrap.github.io/?path=/story/home-installation--page) to make the pages look a bit prettier.
 
