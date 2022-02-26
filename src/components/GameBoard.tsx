@@ -6,16 +6,9 @@ interface BoardProps {
 }
 
 export class GameBoard extends Component<BoardProps> {
-    state = {
-        activeButton: undefined
-    }
+    state = {}
     
-    static colors = [
-        { color: "yellow", className: 'simon-tl' },
-        { color: "green", className: 'simon-tr' },
-        { color: "blue", className: 'simon-bl' },
-        { color: "red", className: 'simon-br' },
-    ];
+    static colors = [ "yellow", "green", "blue", "red" ];
 
     handleClick(color: string) {
         if (this.props.clickHandler) {
@@ -24,12 +17,10 @@ export class GameBoard extends Component<BoardProps> {
     }
 
     render() {
-        let rand = Math.random() * 100000;
-        return <div className="simon-wrapper">
-            { GameBoard.colors.map(({color, className}) => {
+        return <div className="simon-wrapper rev-spin-1">
+            { GameBoard.colors.map((color) => {
                 let isActive = (this.props.activeButton === color);
-                let key = (isActive)?color + rand: color;
-                return <div key={key} className={className + ((isActive) ? ' active' : '')}
+                return <div key={color} className={'simon-button ' + color + ((isActive) ? ' active' : '')}
                             onMouseDown={() => this.handleClick(color)}
                 />
                 })

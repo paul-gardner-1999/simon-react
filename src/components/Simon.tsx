@@ -1,10 +1,14 @@
 import React, { Component } from 'react';
-import { Button } from 'reactstrap';
+import {Col, Container, Row, Progress, Alert} from 'reactstrap';
 import './Simon.css';
 import { GameBoard } from "./GameBoard";
-
-interface IProps {
-}
+import { Audio } from "./Audio";
+import {Dispatch} from "redux";
+import {GameActions} from "../store/types";
+import * as actions from "../store/actions";
+import {IRootState} from "../store";
+import {connect} from "react-redux";
+import {ProgressBar} from "./ProgressBar";
 
 interface IState {
     activeGameStateName?: string;
@@ -33,17 +37,32 @@ type Frequencies = {
 }
 
 
-export class Simon extends Component<IProps, IState> {
-    private prev: IState;
-    private oscillator: OscillatorNode | undefined ;
-    private audioCtx: AudioContext | undefined;
-    private gainNode: GainNode | undefined;
+const mapDispatcherToProps = (dispatch: Dispatch<GameActions>) => {
+    return {
+        setPlaying: (playing: boolean) => dispatch(actions.setPlaying(playing)),
+        setVolume: (volume: number) => dispatch(actions.setVolume(volume))
+    }
+}
 
-    constructor(props: IProps) {
+const mapGameStateToProps = ({ game }: IRootState) => {
+    const { playing, volume } = game;
+    return { playing, volume };
+}
+type ReduxType = ReturnType<typeof mapGameStateToProps> & ReturnType<typeof mapDispatcherToProps>;
+
+const MaxRounds: number = 20;
+
+class Simon extends Component<ReduxType, IState> {
+    private prev: IState;
+    private audio: Audio | undefined;
+
+    private readonly maxRounds: number;
+
+    constructor(props: ReduxType) {
         super(props);
         this.prev = {} as IState;
-        this.oscillator = undefined;
-        this.audioCtx = undefined;
+        this.audio = undefined;
+        this.maxRounds = MaxRounds;
         this.state = {
                 state: "attract",
                 timeout: 0,
@@ -55,39 +74,51 @@ export class Simon extends Component<IProps, IState> {
         }
     }
 
-    ensureAudio() {
-        if (this.audioCtx === undefined) {
-            let AudioContext = window.AudioContext;// || window.webkitAudioContext;
-            this.audioCtx = new AudioContext();
-            this.gainNode = this.audioCtx.createGain();
-
-            // connect oscillator to gain node to speakers
-            this.gainNode.connect(this.audioCtx.destination);
-            this.gainNode.gain.value = 0.1;
+    componentDidMount() {
+        this.audio = new Audio();
+        this.setVolume(this.props.volume);
+    }
+    componentWillUnmount() {
+        this.stopAudio();
+    }
+    componentDidUpdate(prevProps: Readonly<ReduxType>, prevState: Readonly<IState>, snapshot?: any) {
+        console.log("playing: " + prevProps.playing + "=>" + this.props.playing);
+        console.log("volume: " + prevProps.volume + "=>" + this.props.volume);
+        if (prevProps.volume !== this.props.volume) {
+            this.setVolume(this.props.volume);
+        }
+        if (prevProps.playing !== this.props.playing) {
+           if (this.props.playing) {
+               this.startGame();
+           }
         }
     }
-    playNote(frequency: number) {
-        this.ensureAudio();
-        if (this.audioCtx === undefined || this.gainNode === undefined) { return; }
-        this.oscillator = this.audioCtx.createOscillator();
-        this.oscillator.connect(this.gainNode);
-        this.oscillator.type = 'square';
-        this.oscillator.frequency.value = frequency; // value in hertz
-        this.oscillator.start();
+
+    playAudio(frequency: number) {
+        this.audio?.play(frequency);
     }
 
-    stopPlaying() {
-        if (this.oscillator !== undefined) {
-            this.oscillator.stop();
-        }
+    stopAudio() {
+        this.audio?.stop();
     }
+    startGame() {
+        console.log("Starting...");
+        this.processGameState('start_game');
+    }
+    setVolume(volume: number) {
+        this.audio?.setVolume(volume);
+    }
+    getVolume() {
+        return this.audio?.getVolume() || 0;
+    }
+
     
     static frequencies: Frequencies = {
         blue: 164.81, // E
         red: 110, // A
         green: 82.41, // E octave below
         yellow: 138.59, // c#
-        fail: 50.0
+        fail: 49.0
     };
 
     static buttons = [ 'red', 'blue', 'green', 'yellow'];
@@ -207,9 +238,9 @@ export class Simon extends Component<IProps, IState> {
                 let index = prev.index || 0;
                 let notes = prev.notes;
                 let color = (notes !== undefined)?notes[index]:undefined;
-                dis.stopPlaying();
+                dis.stopAudio();
                 if (color !== undefined) {
-                    dis.playNote(Simon.frequencies[color]);
+                    dis.playAudio(Simon.frequencies[color]);
                 }
                 return { 
                     selectedButton: color,
@@ -219,7 +250,7 @@ export class Simon extends Component<IProps, IState> {
                 } as IState;
             },
             end_state: (dis: Simon) => {
-                dis.stopPlaying();
+                dis.stopAudio();
                 return {
                     selectedButton: undefined,
                     message: undefined
@@ -231,7 +262,7 @@ export class Simon extends Component<IProps, IState> {
             type: 'user',
             next: 'passed',
             begin_state: {
-                message: "Now repeat what you just heard!",
+                message: "Now play back what you heard!",
                 index:0
             }
             } as IRule,
@@ -242,21 +273,34 @@ export class Simon extends Component<IProps, IState> {
         } as IRule,
         
         failed: {
-            type: 'user',
-            next: 'start_game',
-            begin_state: {
-                selectedButton: undefined,
-                message: "You lost! Click play to start again."
-            } as IState
+            type: 'countdown',
+            sleep: 1000,
+            begin_state: (dis: Simon, prev: IState) => {
+                dis.playAudio(Simon.frequencies['fail']);
+                return {
+                    selectedButton: undefined,
+                    message: "You lost!",
+                    countdown: 1
+                } as IState;
+            },
+            countdown_function: (dis: Simon, prev: IState) => {
+                let countdown = prev.countdown || 0;
+                return {
+                    countdown: countdown -1
+                } as IState;
+            },
+            end_state: (dis: Simon, prev: IState) => {
+                dis.stopAudio();
+                dis.props.setPlaying(false);
+                return {message: "Game Over"} as IState;
+            },
+            next: 'attract'
         } as IRule
     }
     
     static timeout = 5;
     
     
-    startGame() {
-        this.processGameState('start_game');
-    }
 
     clickHandler(color: string) {
         console.log(`clickHandler(${color})`);
@@ -265,7 +309,7 @@ export class Simon extends Component<IProps, IState> {
             window.addEventListener('mouseup', () => {
                 this.endClickHandler()
             }, {capture: true, once: true});
-            this.playNote(Simon.frequencies[color])
+            this.playAudio(Simon.frequencies[color])
             this.setState({
                 selectedButton: color
             });
@@ -273,7 +317,7 @@ export class Simon extends Component<IProps, IState> {
     }
 
     endClickHandler() {
-        this.stopPlaying();
+        this.stopAudio();
         let index = this.state.index;
         let color = this.state.selectedButton;
         let notes = this.state.notes;
@@ -298,23 +342,34 @@ export class Simon extends Component<IProps, IState> {
 
     render () {
         return (
-            <div>
-                <h1>Simon</h1>
-                <div>
-                    {(this.state.state === "attract") &&
-                        <Button key="play" onClick={this.startGame.bind(this)}>Start Playing</Button>
-                    }
-                    {(this.state.message != null) && 
-                        <div>
-                            {this.state.message}
+            <Container >
+                <Row >
+                    <Col className="col-md-8 offset-md-2">
+                            <GameBoard activeButton={this.state.selectedButton} clickHandler={(color:string)=>this.clickHandler(color)}/>
+                    </Col>
+                </Row>
+                <Row></Row>
+                <Row className="padded-row">
+                    <Col>
+                        <div className="text-center">
+                            Progress
                         </div>
-                    }
-                </div>
-                <div className="game">
-                    <GameBoard activeButton={this.state.selectedButton} clickHandler={(color:string)=>this.clickHandler(color)}/>
-                </div>
-
-            </div>
+                        <ProgressBar stage={this.state.round || 0} maxStages={this.maxRounds} />
+                    </Col>
+                </Row>
+                <Row className="padded-row">
+                    <Col className="col-md-8 offset-md-2">
+                        {(this.state.message != null) &&
+                            <Alert color="primary">
+                                {this.state.message}
+                            </Alert>
+                        }
+                    </Col>
+                </Row>
+            </Container>
         );
     }
 }
+
+
+export default connect(mapGameStateToProps, mapDispatcherToProps)(Simon);
