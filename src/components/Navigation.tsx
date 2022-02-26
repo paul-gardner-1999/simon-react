@@ -88,7 +88,7 @@ export class Navigation extends Component<ReduxType, IState> {
                             </NavLink>
                         </NavItem>
                         <NavItem>
-                            <NavLink href="https://github.com/reactstrap/reactstrap">
+                            <NavLink href="https://github.com/paul-gardner-1999/simon-react">
                                 GitHub
                             </NavLink>
                         </NavItem>

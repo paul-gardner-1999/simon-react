@@ -1,4 +1,15 @@
-# Getting Started with Create React App
+# Simple Electronic Simon Simulator
+
+This is a simple implementation of the Electronic Simon Game
+
+For information on the game: [Simon Wikipedia](https://en.wikipedia.org/wiki/Simon_(game))
+
+Interesting features
+
+* Although the board is drawn to look like the electronic simon game, it uses CSS to modify squares to produce the circular look of the application.
+* The audio is created through the audio context and the oscillator node. It produces sounds very similar to the original electronic game.
+* This abuses react-redux to update state between the navbar and the game itself.
+* Uses [reactstrap](https://reactstrap.github.io/?path=/story/home-installation--page) to make the pages look a bit prettier.
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
@@ -28,16 +39,6 @@ The build is minified and the filenames include the hashes.\
 Your app is ready to be deployed!
 
 See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
-
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
-
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
 
 ## Learn More
 
