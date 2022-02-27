@@ -8,3 +8,7 @@ export function setPlaying(playing: boolean) {
 export function setVolume(volume: number) {
     return action(Constants.SET_VOLUME, {volume});
 }
+
+export function setDifficulty(difficulty: string) {
+    return action(Constants.SET_DIFFICULTY, {difficulty});
+}

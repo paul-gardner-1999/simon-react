@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import {Col, Container, Row, Progress, Alert} from 'reactstrap';
+import {Col, Container, Row, Alert} from 'reactstrap';
 import './Simon.css';
 import { GameBoard } from "./GameBoard";
 import { Audio } from "./Audio";
@@ -9,6 +9,7 @@ import * as actions from "../store/actions";
 import {IRootState} from "../store";
 import {connect} from "react-redux";
 import {ProgressBar} from "./ProgressBar";
+import {Constants} from './Constants';
 
 interface IState {
     activeGameStateName?: string;
@@ -21,13 +22,13 @@ interface IState {
     round?: number;
     audioCtx?: AudioContext;
     countdown?: number;
+    sleep?:number;
 }
 
 interface IRule {
     type: string;
     begin_state?: Function | IState;
     end_state?: Function | IState;
-    sleep?: number;
     countdown?: number;
     next: string;
 }
@@ -36,17 +37,26 @@ type Frequencies = {
     [key: string]: number;
 }
 
+interface IDifficulty {
+    sleep: number;
+}
+
+type IDifficulties = {
+    [key: string]: IDifficulty;
+}
+
 
 const mapDispatcherToProps = (dispatch: Dispatch<GameActions>) => {
     return {
         setPlaying: (playing: boolean) => dispatch(actions.setPlaying(playing)),
-        setVolume: (volume: number) => dispatch(actions.setVolume(volume))
+        setVolume: (volume: number) => dispatch(actions.setVolume(volume)),
+        setDifficulty: (difficulty: string) => dispatch(actions.setDifficulty(difficulty))
     }
 }
 
 const mapGameStateToProps = ({ game }: IRootState) => {
-    const { playing, volume } = game;
-    return { playing, volume };
+    const { playing, volume, difficulty } = game;
+    return { playing, volume, difficulty };
 }
 type ReduxType = ReturnType<typeof mapGameStateToProps> & ReturnType<typeof mapDispatcherToProps>;
 
@@ -175,8 +185,14 @@ class Simon extends Component<ReduxType, IState> {
         const timer = setTimeout(() => {
             clearTimeout(timer);
             this.processCountdown(gameStateRules);
-        }, gameStateRules.sleep);
+        }, effectiveState.sleep || Constants.DEFAULT_SLEEP_MS);
     }
+    static difficultySettings: IDifficulties = {
+        easy : { sleep: 500 },
+        normal: { sleep: 300 },
+        hard: { sleep: 200 }
+    }
+
     static gameStates: { [name: string]: IRule } = {
         attract: {} as IRule,
         start_game: {
@@ -205,9 +221,9 @@ class Simon extends Component<ReduxType, IState> {
         } as IRule,
         ready: {
             type: 'countdown',
-            sleep: 500,
             begin_state: {
-                countdown: 3
+                sleep: Constants.GET_READY_SLEEP_MS,
+                countdown: Constants.GET_READY_COUNTDOWN_STEPS
             },
             countdown_function: (dis: Simon, prev: IState) => {
                 let countdown = prev.countdown || 0;
@@ -223,13 +239,13 @@ class Simon extends Component<ReduxType, IState> {
         } as IRule,
         play_notes: {
             type: 'countdown',
-            sleep: 500,
             begin_state: (dis: Simon, prev: IState) => {
                 let notes = prev.notes;
                 let count = (notes !== undefined) ? notes.length: 0;
                 return {
                     message: "Listen",
                     countdown: count,
+                    sleep: this.difficultySettings[dis.props.difficulty].sleep,
                     index: 0,
                 } as IState;
             },
@@ -274,12 +290,12 @@ class Simon extends Component<ReduxType, IState> {
         
         failed: {
             type: 'countdown',
-            sleep: 1000,
-            begin_state: (dis: Simon, prev: IState) => {
+            begin_state: (dis: Simon, _: IState) => {
                 dis.playAudio(Simon.frequencies['fail']);
                 return {
                     selectedButton: undefined,
-                    message: "You lost!",
+                    message: "You Lost",
+                    sleep: Constants.LOST_MESSAGE_WAIT_TIME_MS,
                     countdown: 1
                 } as IState;
             },
@@ -289,7 +305,7 @@ class Simon extends Component<ReduxType, IState> {
                     countdown: countdown -1
                 } as IState;
             },
-            end_state: (dis: Simon, prev: IState) => {
+            end_state: (dis: Simon, _: IState) => {
                 dis.stopAudio();
                 dis.props.setPlaying(false);
                 return {message: "Game Over"} as IState;
@@ -348,7 +364,6 @@ class Simon extends Component<ReduxType, IState> {
                             <GameBoard activeButton={this.state.selectedButton} clickHandler={(color:string)=>this.clickHandler(color)}/>
                     </Col>
                 </Row>
-                <Row></Row>
                 <Row className="padded-row">
                     <Col>
                         <div className="text-center">
