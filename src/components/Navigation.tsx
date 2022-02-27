@@ -120,15 +120,6 @@ export class Navigation extends Component<ReduxType, IState> {
                         navbar
                     >
                         <NavItem>
-                            <NavLink
-                                href="#"
-                                onClick={this.onClickPlay}
-                                active={!this.props.playing}
-                            >
-                                Start Game
-                            </NavLink>
-                        </NavItem>
-                        <NavItem>
                             <NavLink href={Constants.URL_SOURCE_CODE as string}>
                                 View Source Code
                             </NavLink>
