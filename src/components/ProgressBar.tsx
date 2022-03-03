@@ -14,7 +14,6 @@ export class ProgressBar extends Component<IProps> {
         let good = Math.max(Math.min(percentage, 60) - 30,0);
         let great = Math.max(Math.min(percentage, 85) - 60,0);
         let awesome = Math.max(percentage - 85,0);
-        console.log(`${percentage} ${ok} ${good} ${great} ${awesome}`);
         return (
             <Progress multi className="progress">
                 <Progress bar animated striped value={ok}> OK </Progress>

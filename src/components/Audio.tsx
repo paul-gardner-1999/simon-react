@@ -36,6 +36,7 @@ export class Audio {
     stop() {
         if (this.oscillator !== undefined) {
             this.oscillator.stop();
+            this.oscillator = undefined;
         }
     }
 
@@ -43,7 +44,7 @@ export class Audio {
         return this.gainNode?.gain.value || 0;
     }
     setVolume(volume: number) {
-        if (this.gainNode != undefined) {
+        if (this.gainNode !== undefined) {
             this.gainNode.gain.value = volume;
         }
     }

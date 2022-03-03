@@ -43,11 +43,11 @@
 }
 
 .simon-button.yellow{
-    background: orange;
+    background: #ffa500;
     border-radius: 100% 5% 25% 5%;
 }
 .simon-button.yellow.active {
-    background: yellow;
+    background: #ffff00;
     box-shadow: 0 0 25px yellow;
 }
 

@@ -92,8 +92,6 @@ class Simon extends Component<ReduxType, IState> {
         this.stopAudio();
     }
     componentDidUpdate(prevProps: Readonly<ReduxType>, prevState: Readonly<IState>, snapshot?: any) {
-        console.log("playing: " + prevProps.playing + "=>" + this.props.playing);
-        console.log("volume: " + prevProps.volume + "=>" + this.props.volume);
         if (prevProps.volume !== this.props.volume) {
             this.setVolume(this.props.volume);
         }
@@ -118,11 +116,7 @@ class Simon extends Component<ReduxType, IState> {
     setVolume(volume: number) {
         this.audio?.setVolume(volume);
     }
-    getVolume() {
-        return this.audio?.getVolume() || 0;
-    }
 
-    
     static frequencies: Frequencies = {
         blue: 164.81, // E
         red: 110, // A
@@ -318,13 +312,10 @@ class Simon extends Component<ReduxType, IState> {
     
     
 
-    clickHandler(color: string) {
-        console.log(`clickHandler(${color})`);
+    selectColorHandler(color: string) {
+        console.log(`down(${color})`);
         console.log(`${this.state.activeGameStateName} : ${color}`);
         if (this.state.activeGameStateName === 'user_playback') {
-            window.addEventListener('mouseup', () => {
-                this.endClickHandler()
-            }, {capture: true, once: true});
             this.playAudio(Simon.frequencies[color])
             this.setState({
                 selectedButton: color
@@ -332,10 +323,13 @@ class Simon extends Component<ReduxType, IState> {
         }
     }
 
-    endClickHandler() {
+    deselectColorHandler(c1: string) {
+        console.log(`up(${c1})`);
+        if (this.state.activeGameStateName !== 'user_playback') return;
+        let color = this.state.selectedButton;
+        if (color === undefined) return;
         this.stopAudio();
         let index = this.state.index;
-        let color = this.state.selectedButton;
         let notes = this.state.notes;
         if (notes === undefined || index === undefined) {
             return;
@@ -351,6 +345,9 @@ class Simon extends Component<ReduxType, IState> {
                 this.processGameState('passed');
             }
         } else {
+            this.setState({
+                selectedButton: undefined
+            });
             this.processGameState('failed');
         }
 
@@ -361,7 +358,10 @@ class Simon extends Component<ReduxType, IState> {
             <Container >
                 <Row >
                     <Col className="col-md-8 offset-md-2">
-                            <GameBoard activeButton={this.state.selectedButton} clickHandler={(color:string)=>this.clickHandler(color)}/>
+                            <GameBoard activeButton={this.state.selectedButton}
+                                       colorSelectHandler={(color:string)=>this.selectColorHandler(color)}
+                                       colorDeselectHandler={(color:string)=>this.deselectColorHandler(color)}
+                            />
                     </Col>
                 </Row>
                 <Row className="padded-row">
