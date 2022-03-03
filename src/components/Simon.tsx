@@ -12,7 +12,7 @@ import {ProgressBar} from "./ProgressBar";
 import {Constants} from './Constants';
 
 interface IState {
-    activeGameStateName?: string;
+    activeGameStateName?: GameRuleName;
     state?: string;
     timeout?: number;
     selectedButton?: string | undefined;
@@ -28,12 +28,23 @@ interface IState {
 interface IRule {
     type: string;
     begin_state?: Function | IState;
+    countdown_function?: Function | IState;
     end_state?: Function | IState;
     countdown?: number;
-    next: string;
+    next: GameRuleName;
+}
+export enum GameStateType {
+    Attract = 'attract',
+    Transient = 'transient',
+    User = 'user',
+    Countdown = 'countdown'
 }
 
-type Frequencies = {
+export type IGameRules = {
+    [key in GameRuleName]?: IRule;
+};
+
+type IFrequencies = {
     [key: string]: number;
 }
 
@@ -45,6 +56,17 @@ type IDifficulties = {
     [key: string]: IDifficulty;
 }
 
+
+export enum GameRuleName {
+    Attract,
+    Start,
+    BeginRound,
+    GetReady,
+    PlayNotes,
+    RepeatNotes,
+    Success,
+    Failure
+}
 
 const mapDispatcherToProps = (dispatch: Dispatch<GameActions>) => {
     return {
@@ -63,9 +85,22 @@ type ReduxType = ReturnType<typeof mapGameStateToProps> & ReturnType<typeof mapD
 const MaxRounds: number = 20;
 
 class Simon extends Component<ReduxType, IState> {
+    static difficultySettings: IDifficulties = {
+        easy : { sleep: 500 },
+        normal: { sleep: 300 },
+        hard: { sleep: 200 }
+    }
+
+    static frequencies: IFrequencies = {
+        blue: 164.81, // E
+        red: 110, // A
+        green: 82.41, // E octave below
+        yellow: 138.59, // c#
+        fail: 49.0
+    };
+
     private prev: IState;
     private audio: Audio | undefined;
-
     private readonly maxRounds: number;
 
     constructor(props: ReduxType) {
@@ -74,7 +109,7 @@ class Simon extends Component<ReduxType, IState> {
         this.audio = undefined;
         this.maxRounds = MaxRounds;
         this.state = {
-                state: "attract",
+                state: GameStateType.Attract,
                 timeout: 0,
                 round: 0,
                 selectedButton: undefined,
@@ -110,38 +145,26 @@ class Simon extends Component<ReduxType, IState> {
         this.audio?.stop();
     }
     startGame() {
-        console.log("Starting...");
-        this.processGameState('start_game');
+        this.processGameState(GameRuleName.Start);
     }
     setVolume(volume: number) {
         this.audio?.setVolume(volume);
     }
 
-    static frequencies: Frequencies = {
-        blue: 164.81, // E
-        red: 110, // A
-        green: 82.41, // E octave below
-        yellow: 138.59, // c#
-        fail: 49.0
-    };
 
-    static buttons = [ 'red', 'blue', 'green', 'yellow'];
-        
-    getEffectiveState() {
-        return {...this.state, ...this.prev};
+
+    getEffectiveState() : IState {
+        return {...this.state, ...this.prev} as IState;
     }
-    applyGameStateChange(ruleData: IRule, transitionName: string) {
-        if (transitionName in ruleData) {
-            if (this.prev === undefined) {
-                this.prev = {};
-            }
-            // @ts-ignore
-            let stateChange = ruleData[transitionName] as Function | IState;
-            if (typeof stateChange === 'function') {
-                stateChange = stateChange(this, this.getEffectiveState());
-            }
-            this.prev = { ...this.prev, ...stateChange};
+    applyGameStateChange(stateChange: Function | IState | undefined) {
+        if (stateChange === undefined) return;
+        if (this.prev === undefined) {
+            this.prev = {} as IState;
         }
+        if (typeof stateChange === 'function') {
+            stateChange = stateChange(this, this.getEffectiveState());
+        }
+        this.prev = { ...this.prev, ...stateChange} as IState;
     }
     
     flushStateChanges() {
@@ -151,16 +174,16 @@ class Simon extends Component<ReduxType, IState> {
         }
     }
 
-    processGameState(gameStateName: string) {
-        console.log(`processGameState ${gameStateName}`);
+    processGameState(gameStateName: GameRuleName) {
         let gameStateRules = Simon.gameStates[gameStateName];
+        if (gameStateRules === undefined) return;
         this.prev.activeGameStateName = gameStateName;
-        this.applyGameStateChange( gameStateRules,'begin_state');
+        this.applyGameStateChange( gameStateRules.begin_state );
         switch (gameStateRules.type) {
-            case 'transient':
+            case GameStateType.Transient:
                 this.processGameState(gameStateRules.next);
                 break;
-            case 'countdown':
+            case GameStateType.Countdown:
                 this.processCountdown(gameStateRules);
                 break;
             default: break;
@@ -170,39 +193,70 @@ class Simon extends Component<ReduxType, IState> {
     processCountdown(gameStateRules: IRule) {
         let effectiveState = this.getEffectiveState();
         if ((effectiveState.countdown || 0) <= 0) {
-            this.applyGameStateChange( gameStateRules,'end_state');
+            this.applyGameStateChange( gameStateRules.end_state );
             this.processGameState(gameStateRules.next);
             return;
         }
-        this.applyGameStateChange( gameStateRules,'countdown_function');
+        this.applyGameStateChange( gameStateRules.countdown_function );
         this.flushStateChanges();
         const timer = setTimeout(() => {
             clearTimeout(timer);
             this.processCountdown(gameStateRules);
         }, effectiveState.sleep || Constants.DEFAULT_SLEEP_MS);
     }
-    static difficultySettings: IDifficulties = {
-        easy : { sleep: 500 },
-        normal: { sleep: 300 },
-        hard: { sleep: 200 }
+
+    selectColorHandler(color: string) {
+        if (this.state.activeGameStateName !== GameRuleName.RepeatNotes) return;
+        this.playAudio(Simon.frequencies[color])
+        this.setState({
+            selectedButton: color
+        });
     }
 
-    static gameStates: { [name: string]: IRule } = {
-        attract: {} as IRule,
-        start_game: {
-            type: 'transient',
+    deselectColorHandler(_: string) {
+        if (this.state.activeGameStateName !== GameRuleName.RepeatNotes) return;
+        let color = this.state.selectedButton;
+        if (color === undefined) return;
+        this.stopAudio();
+        let index = this.state.index;
+        let notes = this.state.notes;
+        if (notes === undefined || index === undefined) {
+            return;
+        }
+        if (color === notes[index]) {
+            index++;
+            this.setState({
+                index: index,
+                selectedButton: undefined
+            });
+            if (index >= notes.length) {
+                this.processGameState(GameRuleName.Success);
+            }
+        } else {
+            this.setState({
+                selectedButton: undefined
+            });
+            this.processGameState(GameRuleName.Failure);
+        }
+
+    }
+
+    static gameStates: IGameRules = {
+        [GameRuleName.Attract]: {} as IRule,
+        [GameRuleName.Start]: {
+            type: GameStateType.Transient,
             begin_state: () => {
                 return {
                     notes: [],
                     round: 0
                 };
             },
-            next: 'start_round'
+            next: GameRuleName.BeginRound
         } as IRule,
-        start_round: {
-            type: 'transient',
+        [GameRuleName.BeginRound]: {
+            type: GameStateType.Transient,
             begin_state: (dis: Simon, prev: IState) => {
-                let note = Simon.buttons[Math.floor(Math.random() * Simon.buttons.length)];
+                let note = GameBoard.colors[Math.floor(Math.random() * GameBoard.colors.length)];
                 let notes = prev.notes;
                 if (notes === undefined) {  notes = []; }
                 notes.push(note);
@@ -211,10 +265,10 @@ class Simon extends Component<ReduxType, IState> {
                     round: (prev.round || 0) +1
                 } as IState;
             },
-            next: 'ready'
+            next: GameRuleName.GetReady
         } as IRule,
-        ready: {
-            type: 'countdown',
+        [GameRuleName.GetReady]: {
+            type: GameStateType.Countdown,
             begin_state: {
                 sleep: Constants.GET_READY_SLEEP_MS,
                 countdown: Constants.GET_READY_COUNTDOWN_STEPS
@@ -229,10 +283,10 @@ class Simon extends Component<ReduxType, IState> {
             end_state: {
                 message: undefined
             },
-            next: 'play_notes'
+            next: GameRuleName.PlayNotes
         } as IRule,
-        play_notes: {
-            type: 'countdown',
+        [GameRuleName.PlayNotes]: {
+            type: GameStateType.Countdown,
             begin_state: (dis: Simon, prev: IState) => {
                 let notes = prev.notes;
                 let count = (notes !== undefined) ? notes.length: 0;
@@ -266,29 +320,29 @@ class Simon extends Component<ReduxType, IState> {
                     message: undefined
                 } as IState;
             },
-            next: 'user_playback',
+            next: GameRuleName.RepeatNotes
         } as IRule,
-        user_playback: {
-            type: 'user',
-            next: 'passed',
+        [GameRuleName.RepeatNotes]: {
+            type: GameStateType.User,
+            next: GameRuleName.Success,
             begin_state: {
-                message: "Now play back what you heard!",
+                message: "Now repeat what you heard.",
                 index:0
             }
             } as IRule,
 
-        passed: {
-            type: 'transient',
-            next: 'start_round',
+        [GameRuleName.Success]: {
+            type: GameStateType.Transient,
+            next: GameRuleName.BeginRound,
         } as IRule,
         
-        failed: {
-            type: 'countdown',
+        [GameRuleName.Failure]: {
+            type: GameStateType.Countdown,
             begin_state: (dis: Simon, _: IState) => {
                 dis.playAudio(Simon.frequencies['fail']);
                 return {
                     selectedButton: undefined,
-                    message: "You Lost",
+                    message: "You Lost!",
                     sleep: Constants.LOST_MESSAGE_WAIT_TIME_MS,
                     countdown: 1
                 } as IState;
@@ -302,56 +356,14 @@ class Simon extends Component<ReduxType, IState> {
             end_state: (dis: Simon, _: IState) => {
                 dis.stopAudio();
                 dis.props.setPlaying(false);
-                return {message: "Game Over"} as IState;
+                return {
+                    message: "Game Over"
+                } as IState;
             },
-            next: 'attract'
+            next: GameRuleName.Attract
         } as IRule
     }
-    
-    static timeout = 5;
-    
-    
 
-    selectColorHandler(color: string) {
-        console.log(`down(${color})`);
-        console.log(`${this.state.activeGameStateName} : ${color}`);
-        if (this.state.activeGameStateName === 'user_playback') {
-            this.playAudio(Simon.frequencies[color])
-            this.setState({
-                selectedButton: color
-            });
-        }
-    }
-
-    deselectColorHandler(c1: string) {
-        console.log(`up(${c1})`);
-        if (this.state.activeGameStateName !== 'user_playback') return;
-        let color = this.state.selectedButton;
-        if (color === undefined) return;
-        this.stopAudio();
-        let index = this.state.index;
-        let notes = this.state.notes;
-        if (notes === undefined || index === undefined) {
-            return;
-        }
-        console.log(`endClickHandler(${color},[${notes}][${index}])`);
-        if (color === notes[index]) {
-            index++;
-            this.setState({
-                index: index,
-                selectedButton: undefined
-            });
-            if (index >= notes.length) {
-                this.processGameState('passed');
-            }
-        } else {
-            this.setState({
-                selectedButton: undefined
-            });
-            this.processGameState('failed');
-        }
-
-    }
 
     render () {
         return (

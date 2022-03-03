@@ -4,7 +4,7 @@ import {Progress} from "reactstrap";
 interface IProps {
     stage: number,
     maxStages: number
-};
+}
 
 export class ProgressBar extends Component<IProps> {
 
