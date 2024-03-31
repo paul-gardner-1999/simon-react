@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, {Component} from 'react';
 import {GameButton} from "./GameButton";
 
 interface BoardProps {
@@ -7,24 +7,22 @@ interface BoardProps {
     activeButton?: string;
 }
 
-export class GameBoard extends Component<BoardProps> {
-    state = {}
 
-    static colors = [ "yellow", "green", "blue", "red" ];
+export const COLORS = ["yellow", "green", "blue", "red"]
+export function GameBoard({colorSelectHandler, colorDeselectHandler, activeButton}: BoardProps) {
 
-    render() {
-        return <div className="simon-wrapper rev-spin-1">
-            { GameBoard.colors.map((color) => {
-                let isActive = (this.props.activeButton === color);
-                return <GameButton
-                        key={color}
-                        colorSelectHandler={this.props.colorSelectHandler}
-                        colorDeselectHandler={this.props.colorDeselectHandler}
-                        color={color}
-                        isActive={isActive}
-                />
-                })
-            }
-        </div>
-    }
+    return <div className="simon-wrapper rev-spin-1">
+        {COLORS.map((color) => {
+            let isActive = (activeButton === color);
+            return <GameButton
+                key={color}
+                colorSelectHandler={colorSelectHandler}
+                colorDeselectHandler={colorDeselectHandler}
+                color={color}
+                isActive={isActive}
+            />
+        })
+        }
+    </div>
+
 }

@@ -1,13 +1,14 @@
-import {combineReducers, createStore} from "redux";
 import {IGameState} from "./types";
 import {gameStateReducer} from "./reducer";
+import {combineReducers, configureStore} from '@reduxjs/toolkit';
 
 export interface IRootState {
     game: IGameState
 }
-const store = createStore<IRootState, any, any, any>(
-    combineReducers({
+const store = configureStore({
+    reducer: combineReducers({
         game: gameStateReducer
-    }));
+    })
+})
 
 export default store;

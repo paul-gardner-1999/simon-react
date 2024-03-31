@@ -1,5 +1,6 @@
 
-// Simple Audio library
+// Simple Audio controller
+
 export class Audio {
 
     private oscillator: OscillatorNode | undefined ;

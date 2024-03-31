@@ -1,4 +1,4 @@
-import React, { Component} from "react";
+import React, {Component} from "react";
 
 interface GameButtonProps {
     colorSelectHandler: Function;
@@ -8,38 +8,28 @@ interface GameButtonProps {
     key: string;
 }
 
-export class GameButton extends Component<GameButtonProps> {
+export function GameButton({colorSelectHandler, colorDeselectHandler, color, isActive, key}: GameButtonProps) {
 
-
-    private readonly onPointerDown: OmitThisParameter<(e: any) => void>;
-    private readonly onPointerUp: OmitThisParameter<(e: any) => void>;
-
-    constructor(props: GameButtonProps) {
-        super(props);
-        this.onPointerDown = this.handlePointerDown.bind(this);
-        this.onPointerUp = this.handlePointerUp.bind(this);
-    }
-
-    handlePointerDown(_: React.ChangeEvent<HTMLDivElement>) {
-        if (this.props.colorSelectHandler) {
-            this.props.colorSelectHandler(this.props.color);
+    function onPointerDown(_: React.PointerEvent<HTMLDivElement>) {
+        if (colorSelectHandler) {
+            colorSelectHandler(color);
         }
     }
 
-    handlePointerUp(_: React.ChangeEvent<HTMLDivElement>) {
-        if (this.props.colorDeselectHandler) {
-            this.props.colorDeselectHandler(this.props.color);
+    function onPointerUp(_: React.PointerEvent<HTMLDivElement>) {
+        if (colorDeselectHandler) {
+            colorDeselectHandler(color);
         }
     }
 
-    render() {
-        return <div
-                    className={`simon-button  ${this.props.color} ${(this.props.isActive)?' active':''}`}
-                    onPointerDown={this.onPointerDown}
-                    onPointerUp={this.onPointerUp}
-                    onPointerLeave={this.onPointerUp}
-                />
-    }
+
+    return <div
+        className={`simon-button  ${color} ${(isActive) ? ' active' : ''}`}
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
+    />
 
 }
+
 

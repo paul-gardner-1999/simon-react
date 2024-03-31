@@ -4,6 +4,7 @@ export enum Constants {
     GET_READY_SLEEP_MS = 500,
     GET_READY_COUNTDOWN_STEPS = 3,
     LOST_MESSAGE_WAIT_TIME_MS = 1000,
+    MAX_ROUNDS = 20,
     VOLUME_MIN = 0,
     VOLUME_MAX = 1,
     VOLUME_INCREMENT = 0.01,
