@@ -1,12 +1,19 @@
 
 // Simple Audio controller
 
+import React from "react";
+
 export class Audio {
 
     private oscillator: OscillatorNode | undefined ;
     private audioCtx: AudioContext | undefined;
     private gainNode: GainNode | undefined;
 
+    constructor() {
+        this.oscillator = undefined
+        this.audioCtx = undefined
+        this.gainNode = undefined
+    }
     ensureAudio() {
         if (this.audioCtx === undefined) {
             let AudioContext = window.AudioContext;// || window.webkitAudioContext;
@@ -23,7 +30,11 @@ export class Audio {
     //     this.gainNode.
     // }
 
-    play(frequency: number) {
+    play(frequency: number | undefined) {
+        if (frequency === undefined) {
+            this.stop()
+            return
+        }
         this.ensureAudio();
         this.stop(); // Clear any existing oscillator
         if (this.audioCtx === undefined || this.gainNode === undefined) { return; }
@@ -50,3 +61,13 @@ export class Audio {
         }
     }
 }
+
+const audio = new Audio()
+
+export const AudioContext = React.createContext(audio);
+
+export const AudioProvider:  React.FC<{}> = props => (
+    <AudioContext.Provider value={audio}>{props.children}</AudioContext.Provider>
+);
+// to use...
+//export const useAudio =  React.useContext(AudioContext);

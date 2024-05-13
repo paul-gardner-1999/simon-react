@@ -1,77 +1,44 @@
-import React, { Component } from 'react';
-import {Col, Container, Row, Alert} from 'reactstrap';
+import React, {useContext, useEffect, useState} from 'react';
+import {Alert, Col, Container, Row} from 'reactstrap';
 import './Simon.css';
-import {COLORS, GameBoard} from "./GameBoard";
-import { Audio } from "./Audio";
-import {Dispatch} from "redux";
-import {GameActions} from "../store/types";
-import * as actions from "../store/actions";
-import {IRootState} from "../store";
-import {connect} from "react-redux";
+import {GameBoard} from "./GameBoard";
+import {AudioContext} from "./Audio";
+import {useDispatch, useSelector} from "react-redux";
 import {ProgressBar} from "./ProgressBar";
 import {Constants} from './Constants';
+import {selectVolume} from "../store/volumeSlice";
+import {selectGameActive, stopGame} from "../store/gameStatusSlice";
+import {selectDifficulty} from "../store/difficultySlice";
 
 interface IState {
-    activeGameStateName?: GameStateName;
-    state?: string;
-    timeout?: number;
-    selectedButton?: string | undefined;
-    message?: string;
-    notes?: string[];
-    index?: number;
-    round?: number;
-    audioCtx?: AudioContext;
-    countdown?: number;
-    sleep?:number;
+    stateName?: GameStateName
+    difficulty?: string,
+    state?: string
+    selectedButton?: string | undefined
+    message?: string
+    notes?: string[]
+    index?: number
+    round?: number
+    audio?: string
+    playNoteCallback?:(c:string) => void
 }
 
-interface IRule {
-    type: string;
-    begin_state?: Function | IState;
-    countdown_function?: Function | IState;
-    end_state?: Function | IState;
-    countdown?: number;
-    next: GameStateName;
+interface IMessageState {
+    message: string | undefined
 }
-export enum GameStateType {
-    Attract = 'attract',
-    Transient = 'transient',
-    User = 'user',
-    Countdown = 'countdown'
-}
-
-export type IGameRules = {
-    [key in GameStateName]?: IRule;
-};
 
 type IFrequencies = {
     [key: string]: number;
 }
 
-interface IDifficulty {
-    sleep: number;
-}
-
 type IDifficulties = {
-    [key: string]: IDifficulty;
+    [key: string]: number;
 }
 
-
-export enum GameStateName {
-    Attract,
-    Start,
-    BeginRound,
-    GetReady,
-    PlayNotes,
-    RepeatNotes,
-    Success,
-    Failure
-}
-
-const DIFFICULTY_SETTING_MAP: IDifficulties = {
-    easy : { sleep: 500 },
-    normal: { sleep: 300 },
-    hard: { sleep: 200 }
+const DIFFICULTY_TO_PLAY_DURATION_MS: IDifficulties = {
+    easy: 500,
+    normal: 300,
+    hard: 200
 }
 
 const AUDIO_FREQUENCY_MAP: IFrequencies = {
@@ -83,322 +50,320 @@ const AUDIO_FREQUENCY_MAP: IFrequencies = {
 };
 
 
-const mapDispatcherToProps = (dispatch: Dispatch<GameActions>) => {
-    return {
-        setPlaying: (playing: boolean) => dispatch(actions.setPlaying(playing)),
-        setVolume: (volume: number) => dispatch(actions.setVolume(volume)),
-        setDifficulty: (difficulty: string) => dispatch(actions.setDifficulty(difficulty))
-    }
+export const BUTTONS = ["yellow", "green", "blue", "red"]
+
+export enum GameStateName {
+    Attract = 1,
+    Start,
+    BeginRound,
+    GetReady,
+    PlayNotes,
+    RepeatNotes,
+    Failure
 }
 
-const mapGameStateToProps = ({ game }: IRootState) => {
-    const { playing, volume, difficulty } = game;
-    return { playing, volume, difficulty };
-}
-type ReduxType = ReturnType<typeof mapGameStateToProps> & ReturnType<typeof mapDispatcherToProps>;
 
+export type IGameRules = {
+    [key in GameStateName]?: (e: GameEngine) => void;
+};
 
-class Simon extends Component<ReduxType, IState> {
+class GameEngine {
 
+    private gameRules: IGameRules
+    private state: IState
+    private state_delta: IState
+    private changeCallback: (state_changes: IState) => void
+    readonly playDurationMs: () => number
 
-    private prev: IState;
-    private audio: Audio | undefined;
-    private readonly maxRounds: number;
-
-    constructor(props: ReduxType) {
-        super(props);
-        this.prev = {} as IState;
-        this.audio = undefined;
-        this.maxRounds = Constants.MAX_ROUNDS;
+    constructor(rules: IGameRules, change_callback: (state_changes: IState) => void, playDurationMs: () => number) {
+        this.gameRules = rules
+        this.state_delta = {} as IState
         this.state = {
-                state: GameStateType.Attract,
-                timeout: 0,
-                round: 0,
-                selectedButton: undefined,
-                message: undefined,
-                notes: undefined,
-                index: undefined
-        }
+            difficulty: "normal",
+            round: 0,
+            message: undefined,
+            notes: undefined,
+            index: undefined
+        } as IState
+        this.changeCallback = change_callback
+        this.playDurationMs = playDurationMs
     }
 
-    componentDidMount() {
-        this.audio = new Audio();
-        this.setVolume(this.props.volume);
-    }
-    componentWillUnmount() {
-        this.stopAudio();
-    }
-    componentDidUpdate(prevProps: Readonly<ReduxType>, prevState: Readonly<IState>, snapshot?: any) {
-        if (prevProps.volume !== this.props.volume) {
-            this.setVolume(this.props.volume);
-        }
-        if (prevProps.playing !== this.props.playing) {
-           if (this.props.playing) {
-               this.startGame();
-           }
-        }
+    playNote(color: string) {
+        const state = this.getEffectiveState()
+        state.playNoteCallback?.(color)
     }
 
-    playAudio(frequency: number) {
-        this.audio?.play(frequency);
+    async startGame() {
+        await this.processGameState(GameStateName.Start)
     }
 
-    stopAudio() {
-        this.audio?.stop();
-    }
-    startGame() {
-        this.processGameState(GameStateName.Start);
-    }
-    setVolume(volume: number) {
-        this.audio?.setVolume(volume);
+    async stopGame() {
+        await this.processGameState(GameStateName.Attract)
     }
 
-
-
-    getEffectiveState() : IState {
-        return {...this.state, ...this.prev} as IState;
-    }
-    applyGameStateChange(stateChange: Function | IState | undefined) {
-        if (stateChange === undefined) return;
-        if (this.prev === undefined) {
-            this.prev = {} as IState;
-        }
-        if (typeof stateChange === 'function') {
-            stateChange = stateChange(this, this.getEffectiveState());
-        }
-        this.prev = { ...this.prev, ...stateChange} as IState;
-    }
-    
     flushStateChanges() {
-        if ('prev' in this) {
-            this.setState(this.prev);
-            this.prev = {} as IState;
+        if (Object.keys(this.state_delta).length > 0) {
+            this.state = this.getEffectiveState()
+            this.changeCallback(this.state_delta)
+            this.state_delta = {} as IState;
         }
     }
 
-    processGameState(gameStateName: GameStateName) {
-        let gameStateRules = Simon.gameStates[gameStateName];
-        if (gameStateRules === undefined) return;
-        this.prev.activeGameStateName = gameStateName;
-        this.applyGameStateChange( gameStateRules.begin_state );
-        switch (gameStateRules.type) {
-            case GameStateType.Transient:
-                this.processGameState(gameStateRules.next);
-                break;
-            case GameStateType.Countdown:
-                this.processCountdown(gameStateRules);
-                break;
-            default: break;
-        }
+    async processGameState(gameStateName: GameStateName) {
+        const gameStateRule = this.gameRules[gameStateName];
+        if (gameStateRule === undefined) return;
+        gameStateRule(this);
+    }
+
+    applyStateChange(changes: IState) {
+        this.state_delta = {...this.state_delta, ...changes} as IState;
         this.flushStateChanges();
-    }
-    processCountdown(gameStateRules: IRule) {
-        let effectiveState = this.getEffectiveState();
-        if ((effectiveState.countdown || 0) <= 0) {
-            this.applyGameStateChange( gameStateRules.end_state );
-            this.processGameState(gameStateRules.next);
-            return;
-        }
-        this.applyGameStateChange( gameStateRules.countdown_function );
-        this.flushStateChanges();
-        const timer = setTimeout(() => {
-            clearTimeout(timer);
-            this.processCountdown(gameStateRules);
-        }, effectiveState.sleep || Constants.DEFAULT_SLEEP_MS);
+
     }
 
-    selectColorHandler(color: string) {
-        if (this.state.activeGameStateName !== GameStateName.RepeatNotes) return;
-        this.playAudio(AUDIO_FREQUENCY_MAP[color])
-        this.setState({
-            selectedButton: color
-        });
+    getEffectiveState(): IState {
+        return {...this.state, ...this.state_delta} as IState;
     }
 
-    deselectColorHandler(_: string) {
-        if (this.state.activeGameStateName !== GameStateName.RepeatNotes) return;
-        let color = this.state.selectedButton;
-        if (color === undefined) return;
-        this.stopAudio();
-        let index = this.state.index;
-        let notes = this.state.notes;
-        if (notes === undefined || index === undefined) {
-            return;
-        }
-        if (color === notes[index]) {
-            index++;
-            this.setState({
-                index: index,
-                selectedButton: undefined
-            });
-            if (index >= notes.length) {
-                this.processGameState(GameStateName.Success);
+}
+
+const GAME_RULES: IGameRules = {
+    [GameStateName.Attract]: (engine: GameEngine) => {
+    },
+    [GameStateName.Start]: (engine: GameEngine) => {
+        engine.applyStateChange({notes: [], round: 0, stateName: GameStateName.BeginRound})
+    },
+    [GameStateName.BeginRound]: (engine: GameEngine) => {
+        let note = BUTTONS[Math.floor(Math.random() * BUTTONS.length)];
+        const state = engine.getEffectiveState()
+        let notes = state.notes || [];
+        notes.push(note);
+        engine.applyStateChange({
+            notes,
+            round: (state.round || 0) + 1,
+            stateName: GameStateName.GetReady
+        })
+    },
+    [GameStateName.GetReady]: (engine: GameEngine): void => {
+        const state = engine.getEffectiveState()
+        const steps = async (countdown: number) => {
+            if (countdown > 0) {
+                const message = `Round ${state.round}: Get Ready! ${countdown}`
+                engine.applyStateChange({message})
+                setTimeout(() => {
+                    steps(countdown - 1)
+                }, 1000)
+            } else {
+                engine.applyStateChange(
+                    {
+                        message: undefined,
+                        stateName: GameStateName.PlayNotes
+                    }
+                )
             }
-        } else {
-            this.setState({
-                selectedButton: undefined
-            });
-            this.processGameState(GameStateName.Failure);
         }
-
-    }
-
-    static gameStates: IGameRules = {
-        [GameStateName.Attract]: {} as IRule,
-        [GameStateName.Start]: {
-            type: GameStateType.Transient,
-            begin_state: () => {
-                return {
-                    notes: [],
-                    round: 0
-                };
-            },
-            next: GameStateName.BeginRound
-        } as IRule,
-        [GameStateName.BeginRound]: {
-            type: GameStateType.Transient,
-            begin_state: (dis: Simon, prev: IState) => {
-                let note = COLORS[Math.floor(Math.random() * COLORS.length)];
-                let notes = prev.notes;
-                if (notes === undefined) {  notes = []; }
-                notes.push(note);
-                return {
-                    notes: notes,
-                    round: (prev.round || 0) +1
-                } as IState;
-            },
-            next: GameStateName.GetReady
-        } as IRule,
-        [GameStateName.GetReady]: {
-            type: GameStateType.Countdown,
-            begin_state: {
-                sleep: Constants.GET_READY_SLEEP_MS,
-                countdown: Constants.GET_READY_COUNTDOWN_STEPS
-            },
-            countdown_function: (dis: Simon, prev: IState) => {
-                let countdown = prev.countdown || 0;
-                return {
-                    message: `Round ${prev.round}: Get Ready! ${countdown}`,
-                    countdown: countdown -1
-                } as IState;
-            },
-            end_state: {
-                message: undefined
-            },
-            next: GameStateName.PlayNotes
-        } as IRule,
-        [GameStateName.PlayNotes]: {
-            type: GameStateType.Countdown,
-            begin_state: (dis: Simon, prev: IState) => {
-                let notes = prev.notes;
-                let count = (notes !== undefined) ? notes.length: 0;
-                return {
-                    message: "Listen",
-                    countdown: count,
-                    sleep: DIFFICULTY_SETTING_MAP[dis.props.difficulty].sleep,
-                    index: 0,
-                } as IState;
-            },
-            countdown_function: (dis: Simon, prev: IState) => {
-                let countdown = prev.countdown || 0;
-                let index = prev.index || 0;
-                let notes = prev.notes;
-                let color = (notes !== undefined)?notes[index]:undefined;
-                dis.stopAudio();
-                if (color !== undefined) {
-                    dis.playAudio(AUDIO_FREQUENCY_MAP[color]);
-                }
-                return { 
-                    selectedButton: color,
-                    index: index + 1,
-                    message: `Play Note! ${countdown}`,
-                    countdown: countdown -1
-                } as IState;
-            },
-            end_state: (dis: Simon) => {
-                dis.stopAudio();
-                return {
-                    selectedButton: undefined,
-                    message: undefined
-                } as IState;
-            },
-            next: GameStateName.RepeatNotes
-        } as IRule,
-        [GameStateName.RepeatNotes]: {
-            type: GameStateType.User,
-            next: GameStateName.Success,
-            begin_state: {
-                message: "Now repeat what you heard.",
-                index:0
+        steps(Constants.GET_READY_COUNTDOWN_STEPS).then()
+    },
+    [GameStateName.PlayNotes]: (engine: GameEngine) => {
+        const steps = async (index: number) => {
+            const state = engine.getEffectiveState()
+            if (index < (state.notes?.length || 0)) {
+                let selectedButton = (state.notes) ? state.notes[index] : 'fail'
+                const message = "Listen"
+                engine.applyStateChange({
+                    message,
+                    selectedButton
+                })
+                setTimeout(() => {
+                    // Break between steps
+                    engine.applyStateChange({
+                        selectedButton:undefined
+                    })
+                    setTimeout(() => {
+                        steps(index + 1)
+                    }, 20)
+                }, engine.playDurationMs())
+            } else {
+                engine.applyStateChange(
+                    {
+                        selectedButton: undefined,
+                        message: undefined,
+                        stateName: GameStateName.RepeatNotes
+                    }
+                )
             }
-            } as IRule,
-
-        [GameStateName.Success]: {
-            type: GameStateType.Transient,
-            next: GameStateName.BeginRound,
-        } as IRule,
-        
-        [GameStateName.Failure]: {
-            type: GameStateType.Countdown,
-            begin_state: (dis: Simon, _: IState) => {
-                dis.playAudio(AUDIO_FREQUENCY_MAP['fail']);
-                return {
-                    selectedButton: undefined,
-                    message: "You Lost!",
-                    sleep: Constants.LOST_MESSAGE_WAIT_TIME_MS,
-                    countdown: 1
-                } as IState;
-            },
-            countdown_function: (dis: Simon, prev: IState) => {
-                let countdown = prev.countdown || 0;
-                return {
-                    countdown: countdown -1
-                } as IState;
-            },
-            end_state: (dis: Simon, _: IState) => {
-                dis.stopAudio();
-                dis.props.setPlaying(false);
-                return {
-                    message: "Game Over"
-                } as IState;
-            },
-            next: GameStateName.Attract
-        } as IRule
-    }
-
-
-    render () {
-        return (
-            <Container >
-                <Row >
-                    <Col className="col-md-8 offset-md-2">
-                            <GameBoard activeButton={this.state.selectedButton}
-                                       colorSelectHandler={(color:string)=>this.selectColorHandler(color)}
-                                       colorDeselectHandler={(color:string)=>this.deselectColorHandler(color)}
-                            />
-                    </Col>
-                </Row>
-                <Row className="padded-row">
-                    <Col>
-                        <div className="text-center">
-                            Progress
-                        </div>
-                        <ProgressBar stage={this.state.round || 0} maxStages={this.maxRounds} />
-                    </Col>
-                </Row>
-                <Row className="padded-row">
-                    <Col className="col-md-8 offset-md-2">
-                        {(this.state.message != null) &&
-                            <Alert color="primary">
-                                {this.state.message}
-                            </Alert>
+        }
+        steps(0).then()
+    },
+    [GameStateName.RepeatNotes]: (engine: GameEngine) => {
+        const notes: string[] = engine.getEffectiveState().notes || []
+        const playState = {
+            index: 0,
+            notes: notes
+        }
+        const playNoteCallback = (note: string) => {
+            if (note == playState.notes[playState.index]) {
+                playState.index++
+                if (playState.index >= notes.length) {
+                    engine.applyStateChange({
+                            stateName: GameStateName.BeginRound
                         }
-                    </Col>
-                </Row>
-            </Container>
-        );
+                    )
+                }
+            } else {
+                engine.applyStateChange({
+                        stateName: GameStateName.Failure
+                    }
+                )
+            }
+        }
+        engine.applyStateChange({
+                playNoteCallback,
+                index: 0,
+                message: "Now repeat what you heard.",
+            }
+        )
+    },
+    [GameStateName.Failure]: (engine: GameEngine) => {
+        const failed = async () => {
+            let message = `Game Over`
+            engine.applyStateChange({message, selectedButton: "fail"})
+            setTimeout(() => {
+                engine.applyStateChange(
+                    {
+                        selectedButton: undefined,
+                        message: "Please Try Again",
+                        stateName: GameStateName.Attract
+                    }
+                )
+            }, Constants.LOST_MESSAGE_WAIT_TIME_MS)
+        }
+        failed().then()
     }
 }
 
 
-export default connect(mapGameStateToProps, mapDispatcherToProps)(Simon);
+export default function Simon() {
+
+    const [selectedButton, setSelectedButton] = useState<string | undefined>(undefined)
+    const [message, setMessage] = useState('')
+    const [activeGameStateName, setActiveGameStateName] = useState<GameStateName>(GameStateName.Attract)
+    const [round, setRound] = useState(0)
+    const [engine, setEngine] = useState<GameEngine>()
+    const dispatch = useDispatch();
+    const difficulty = useSelector(selectDifficulty)
+
+
+    const getPlayDurationMs = () => DIFFICULTY_TO_PLAY_DURATION_MS[difficulty]
+
+
+
+    const stateChangeCallback = (state_changes: IState) => {
+        if ('selectedButton' in state_changes) {
+            setSelectedButton(state_changes.selectedButton)
+        }
+        if ('message' in state_changes) {
+            setMessage(state_changes.message || '')
+        }
+        if ('round' in state_changes) {
+            setRound(state_changes.round || 0)
+        }
+        if ('stateName' in state_changes && state_changes.stateName !== undefined) {
+            const name = state_changes.stateName
+            setActiveGameStateName(name)
+        }
+    }
+
+    React.useEffect(() => {
+        setEngine(new GameEngine(GAME_RULES, stateChangeCallback, getPlayDurationMs))
+    }, [])
+
+    const audio = useContext(AudioContext)
+
+    const volume = useSelector(selectVolume)
+    const isGameActive = useSelector(selectGameActive)
+
+    useEffect(() => {
+        if (activeGameStateName === GameStateName.Attract) {
+            dispatch(stopGame())
+        } else {
+            engine?.processGameState(activeGameStateName).then()
+        }
+    }, [activeGameStateName])
+
+    useEffect(() => {
+        audio.setVolume(volume)
+
+        return () => {
+            audio?.stop()
+        }
+    }, [audio, volume])
+
+    useEffect(() => {
+        if (isGameActive) {
+            engine?.startGame().then();
+        } else {
+            engine?.stopGame().then();
+        }
+    }, [isGameActive])
+
+    useEffect( () => {
+        playAudio(selectedButton)
+    }, [selectedButton])
+
+    const playAudio = (code: string | undefined) => {
+        audio?.stop()
+        if (code !== undefined) {
+            const frequency = AUDIO_FREQUENCY_MAP[code]
+            audio?.play(frequency);
+        }
+    }
+
+
+    const selectButtonHandler = (color: string | undefined) => {
+        if (activeGameStateName !== GameStateName.RepeatNotes) return;
+        setSelectedButton(color)
+    }
+
+    const deselectButtonHandler = (_: string) => {
+        if (activeGameStateName !== GameStateName.RepeatNotes) return;
+        let color = selectedButton;
+        if (color !== undefined) {
+            setSelectedButton(undefined)
+            engine?.playNote(color)
+        }
+    }
+
+    return (
+        <Container>
+            <Row>
+                <Col className="col-md-8 offset-md-2">
+                    <GameBoard activeButton={selectedButton}
+                               colorSelectHandler={selectButtonHandler}
+                               colorDeselectHandler={deselectButtonHandler}
+                               colors={BUTTONS}
+                    />
+                </Col>
+            </Row>
+            <Row className="padded-row">
+                <Col>
+                    <div className="text-center">
+                        Progress
+                    </div>
+                    <ProgressBar stage={round || 0} maxStages={Constants.MAX_ROUNDS.valueOf()}/>
+                </Col>
+            </Row>
+            <Row className="padded-row">
+                <Col className="col-md-8 offset-md-2">
+                    <GameMessage message={message}/>
+                </Col>
+            </Row>
+        </Container>
+    );
+
+}
+
+export function GameMessage({message}: IMessageState) {
+    return (message == null) ? <div/> : <Alert color="primary">{message}</Alert>
+}

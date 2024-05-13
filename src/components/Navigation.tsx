@@ -12,32 +12,17 @@ import {
 } from "reactstrap";
 import {NavItem, NavLink, NavbarText} from "reactstrap";
 import {Collapse} from "reactstrap";
-import {connect, useDispatch, useSelector} from "react-redux";
-import {IRootState} from "../store";
-import {GameActions, IGameState} from "../store/types";
-import {Dispatch} from "redux";
-import * as actions from '../store/actions';
+import {useDispatch, useSelector} from "react-redux";
 import './Navigation.css';
 import {Constants} from "./Constants";
-import {setDifficulty, setPlaying, setVolume} from "../store/actions";
+import {selectGameActive, playGame} from "../store/gameStatusSlice";
+import {selectDifficulty, setDifficulty} from "../store/difficultySlice";
+import {Difficulty} from "../store/types";
+import {selectVolume, setVolume} from "../store/volumeSlice";
 
 
-const mapDispatcherToProps = (dispatch: Dispatch<GameActions>) => {
-    return {
-        setVolume: (volume: number) => dispatch(actions.setVolume(volume)),
-        setPlaying: (playing: boolean) => dispatch(actions.setPlaying(playing)),
-        setDifficulty: (difficulty: string) => dispatch(actions.setDifficulty(difficulty))
-    }
-}
 
-export const mapGameStateToProps = ({game}: IRootState) => {
-    const {playing, volume, difficulty} = game;
-    return {playing, volume, difficulty};
-}
-export type ReduxType = ReturnType<typeof mapGameStateToProps> & ReturnType<typeof mapDispatcherToProps>;
-
-
-export function Navigation() {
+export default function Navigation() {
 
     const [navbarOpen, setNavbarOpen] = useState(false);
     const toggleNavbar = () => setNavbarOpen(!navbarOpen)
@@ -72,8 +57,8 @@ function PlayGameButton() {
     const [dropdown, setDropdown] = useState(false);
 
     const dispatch = useDispatch();
-    const playing = useSelector<IGameState, any>(state => state.playing)
-    const difficulty = useSelector<IGameState, any>(state => state.difficulty)
+    const isGameActive = useSelector(selectGameActive)
+    const difficulty = useSelector(selectDifficulty)
     const toggleDropdown = () => setDropdown(!dropdown)
 
     return <NavbarBrand>
@@ -82,12 +67,12 @@ function PlayGameButton() {
             toggle={toggleDropdown}
         >
             <Button id="caret"
-                    onClick={() => dispatch(setPlaying(true))}
-                    disabled={playing}
+                    onClick={() => dispatch(playGame())}
+                    disabled={isGameActive}
             >
-                Play Game
+                Start Game
             </Button>
-            <DropdownToggle split disabled={playing}/>
+            <DropdownToggle split disabled={isGameActive}/>
             <DropdownMenu>
                 <DropdownItem header>
                     Select Difficulty
@@ -98,7 +83,7 @@ function PlayGameButton() {
                         <DropdownItem className='text-capitalize'
                                       key={d}
                                       active={difficulty === d}
-                                      onClick={_ => dispatch(setDifficulty(d))}>
+                                      onClick={_ => dispatch(setDifficulty(d as Difficulty))}>
                             {d}
                         </DropdownItem>)
                 }
@@ -110,16 +95,17 @@ function PlayGameButton() {
 
 function VolumeControl() {
     const dispatch = useDispatch();
-
-    const volume = useSelector<IGameState, any>(state => state.volume)
+    const volume = useSelector(selectVolume)
+    console.log(`Volume: ${volume}`)
     const onVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const {value} = e.target;
-        dispatch(setVolume(Number(value)))
+        console.log(e.target.value)
+        dispatch(setVolume(Number(e.target.value)))
     }
 
     return <NavbarText>
         Volume
         <Input
+            //onInput={(e) => dispatch(setVolume(Number(e.target)))}
             onInput={onVolumeChange}
             className="volume-control"
             id="volume-control"
@@ -138,5 +124,3 @@ function VolumeControl() {
     </NavbarText>
 
 }
-
-export default connect(mapGameStateToProps, mapDispatcherToProps)(Navigation);

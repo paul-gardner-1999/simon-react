@@ -1,18 +1,18 @@
-import React, {Component} from 'react';
+import React from 'react';
 import {GameButton} from "./GameButton";
 
 interface BoardProps {
     colorSelectHandler: Function;
     colorDeselectHandler: Function;
     activeButton?: string;
+    colors: string[]
 }
 
 
-export const COLORS = ["yellow", "green", "blue", "red"]
-export function GameBoard({colorSelectHandler, colorDeselectHandler, activeButton}: BoardProps) {
+export function GameBoard({colorSelectHandler, colorDeselectHandler, activeButton, colors}: BoardProps) {
 
     return <div className="simon-wrapper rev-spin-1">
-        {COLORS.map((color) => {
+        {colors.map((color) => {
             let isActive = (activeButton === color);
             return <GameButton
                 key={color}
