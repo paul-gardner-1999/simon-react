@@ -1,4 +1,4 @@
-import React, {useContext, useEffect, useState} from 'react';
+import React, {useCallback, useContext, useEffect, useState} from 'react';
 import {Alert, Col, Container, Row} from 'reactstrap';
 import './Simon.css';
 import {GameBoard} from "./GameBoard";
@@ -203,7 +203,7 @@ const GAME_RULES: IGameRules = {
             notes: notes
         }
         const playNoteCallback = (note: string) => {
-            if (note == playState.notes[playState.index]) {
+            if (note === playState.notes[playState.index]) {
                 playState.index++
                 if (playState.index >= notes.length) {
                     engine.applyStateChange({
@@ -275,22 +275,27 @@ export default function Simon() {
         }
     }
 
-    React.useEffect(() => {
+    const onLoad = () => {
         setEngine(new GameEngine(GAME_RULES, stateChangeCallback, getPlayDurationMs))
-    }, [])
+    }
+    React.useEffect(() => onLoad())
 
     const audio = useContext(AudioContext)
 
     const volume = useSelector(selectVolume)
     const isGameActive = useSelector(selectGameActive)
 
-    useEffect(() => {
-        if (activeGameStateName === GameStateName.Attract) {
+    const handleGameStateNameChange = useCallback((name: GameStateName) => {
+        if (name === GameStateName.Attract) {
             dispatch(stopGame())
         } else {
-            engine?.processGameState(activeGameStateName).then()
+            engine?.processGameState(name).then()
         }
-    }, [activeGameStateName])
+    },[engine, dispatch])
+
+    useEffect(() => {
+        handleGameStateNameChange(activeGameStateName)
+    }, [activeGameStateName, handleGameStateNameChange])
 
     useEffect(() => {
         audio.setVolume(volume)
@@ -306,19 +311,19 @@ export default function Simon() {
         } else {
             engine?.stopGame().then();
         }
-    }, [isGameActive])
+    }, [isGameActive, engine])
 
-    useEffect( () => {
-        playAudio(selectedButton)
-    }, [selectedButton])
-
-    const playAudio = (code: string | undefined) => {
+    const playAudio = useCallback((code: string | undefined) => {
         audio?.stop()
         if (code !== undefined) {
             const frequency = AUDIO_FREQUENCY_MAP[code]
             audio?.play(frequency);
         }
-    }
+    }, [audio])
+
+    useEffect( () => {
+        playAudio(selectedButton)
+    }, [selectedButton, playAudio])
 
 
     const selectButtonHandler = (color: string | undefined) => {
