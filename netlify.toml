@@ -1,0 +1,7 @@
+# Overrides the site's UI build settings (originally configured for Create React App)
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "24"
