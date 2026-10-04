@@ -12,13 +12,10 @@ import {
 } from "reactstrap";
 import {NavItem, NavLink, NavbarText} from "reactstrap";
 import {Collapse} from "reactstrap";
-import {useDispatch, useSelector} from "react-redux";
 import './Navigation.css';
 import {Constants} from "./Constants";
-import {selectGameActive, playGame} from "../store/gameStatusSlice";
-import {selectDifficulty, setDifficulty} from "../store/difficultySlice";
-import {Difficulty} from "../store/types";
-import {selectVolume, setVolume} from "../store/volumeSlice";
+import {selectGameActive, useSimonStore} from "../store/useSimonStore";
+import {type Difficulty, randomColor} from "../game/simon";
 
 
 
@@ -56,9 +53,10 @@ export default function Navigation() {
 function PlayGameButton() {
     const [dropdown, setDropdown] = useState(false);
 
-    const dispatch = useDispatch();
-    const isGameActive = useSelector(selectGameActive)
-    const difficulty = useSelector(selectDifficulty)
+    const dispatch = useSimonStore(s => s.dispatch)
+    const isGameActive = useSimonStore(selectGameActive)
+    const difficulty = useSimonStore(s => s.difficulty)
+    const setDifficulty = useSimonStore(s => s.setDifficulty)
     const toggleDropdown = () => setDropdown(!dropdown)
 
     return <NavbarBrand>
@@ -67,7 +65,7 @@ function PlayGameButton() {
             toggle={toggleDropdown}
         >
             <Button id="caret"
-                    onClick={() => dispatch(playGame())}
+                    onClick={() => dispatch({type: 'start', firstNote: randomColor()})}
                     disabled={isGameActive}
             >
                 Start Game
@@ -79,11 +77,11 @@ function PlayGameButton() {
                 </DropdownItem>
                 <DropdownItem divider/>
                 {
-                    ['easy', 'normal', 'hard'].map(d =>
+                    (['easy', 'normal', 'hard'] as Difficulty[]).map(d =>
                         <DropdownItem className='text-capitalize'
                                       key={d}
                                       active={difficulty === d}
-                                      onClick={_ => dispatch(setDifficulty(d as Difficulty))}>
+                                      onClick={() => setDifficulty(d)}>
                             {d}
                         </DropdownItem>)
                 }
@@ -94,19 +92,14 @@ function PlayGameButton() {
 
 
 function VolumeControl() {
-    const dispatch = useDispatch();
-    const volume = useSelector(selectVolume)
-    console.log(`Volume: ${volume}`)
-    const onVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        console.log(e.target.value)
-        dispatch(setVolume(Number(e.target.value)))
-    }
+    const volume = useSimonStore(s => s.volume)
+    const setVolume = useSimonStore(s => s.setVolume)
+    const onVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => setVolume(Number(e.target.value))
 
     return <NavbarText>
         Volume
         <Input
-            //onInput={(e) => dispatch(setVolume(Number(e.target)))}
-            onInput={onVolumeChange}
+            onChange={onVolumeChange}
             className="volume-control"
             id="volume-control"
             name="range"

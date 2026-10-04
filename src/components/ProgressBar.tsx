@@ -1,4 +1,3 @@
-import React from "react";
 import {Progress} from "reactstrap";
 
 interface IProps {
@@ -7,11 +6,11 @@ interface IProps {
 }
 
 export function ProgressBar({stage, maxStages}: IProps) {
-    let percentage = (stage / maxStages) * 100;
-    let ok = Math.min(percentage, 30);
-    let good = Math.max(Math.min(percentage, 60) - 30,0);
-    let great = Math.max(Math.min(percentage, 85) - 60,0);
-    let awesome = Math.max(percentage - 85,0);
+    const percentage = (stage / maxStages) * 100;
+    const ok = Math.min(percentage, 30);
+    const good = Math.max(Math.min(percentage, 60) - 30,0);
+    const great = Math.max(Math.min(percentage, 85) - 60,0);
+    const awesome = Math.max(percentage - 85,0);
 
     return  <Progress multi className="progress">
         <Progress bar animated striped value={ok}> OK </Progress>
