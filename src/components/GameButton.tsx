@@ -1,28 +1,24 @@
-import React from "react";
+import type {Color} from "../game/simon";
 
 interface GameButtonProps {
-    colorSelectHandler: Function;
-    colorDeselectHandler: Function;
-    color: string;
+    colorSelectHandler: (color: Color) => void;
+    colorDeselectHandler: (color: Color) => void;
+    color: Color;
     isActive: boolean;
 }
 
 export function GameButton({colorSelectHandler, colorDeselectHandler, color, isActive}: GameButtonProps) {
 
-    function onPointerDown(_: React.PointerEvent<HTMLDivElement>) {
-        if (colorSelectHandler) {
-            colorSelectHandler(color);
-        }
+    function onPointerDown() {
+        colorSelectHandler(color);
     }
 
-    function onPointerUp(_: React.PointerEvent<HTMLDivElement>) {
-        if (colorDeselectHandler) {
-            colorDeselectHandler(color);
-        }
+    function onPointerUp() {
+        colorDeselectHandler(color);
     }
 
 
-    return <div key={color}
+    return <div
         className={`simon-button  ${color} ${(isActive) ? ' active' : ''}`}
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}

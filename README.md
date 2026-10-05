@@ -10,40 +10,27 @@ Interesting features
 
 * Although the board is drawn to look like the electronic simon game, it uses CSS to modify squares to produce the circular look of the application.
 * The audio is created through the audio context and the oscillator node (no wav/mp3 files). It produces sounds very similar to the original electronic game.
-* This abuses react-redux to update state between the navbar and the game itself.
+* The game is a pure reducer (`src/game/simon.ts`) held in a small [Zustand](https://github.com/pmndrs/zustand) store shared by the navbar and the board.
 * Uses [reactstrap](https://reactstrap.github.io/?path=/story/home-installation--page) to make the pages look a bit prettier.
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Built with [Vite](https://vite.dev), React 19 and TypeScript.
 
 ## Available Scripts
 
 In the project directory, you can run:
 
-### `npm start`
+### `npm start` (or `npm run dev`)
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
-
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+Runs the app in development mode at [http://localhost:3000](http://localhost:3000), with hot reload.
 
 ### `npm test`
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Runs the [Vitest](https://vitest.dev) suite in watch mode. Use `npx vitest run` for a single run.
+
+### `npm run lint`
+
+Runs ESLint.
 
 ### `npm run build`
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
+Type-checks and builds the app for production into the `dist` folder. `npm run preview` serves the build locally.

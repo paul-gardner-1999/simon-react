@@ -1,13 +1,14 @@
 
 // Simple Audio controller
 
-import React from "react";
+import {createContext} from "react";
 
 export class Audio {
 
     private oscillator: OscillatorNode | undefined ;
     private audioCtx: AudioContext | undefined;
     private gainNode: GainNode | undefined;
+    private volume = 0.1;
 
     constructor() {
         this.oscillator = undefined
@@ -16,19 +17,14 @@ export class Audio {
     }
     ensureAudio() {
         if (this.audioCtx === undefined) {
-            let AudioContext = window.AudioContext;// || window.webkitAudioContext;
             this.audioCtx = new AudioContext();
             this.gainNode = this.audioCtx.createGain();
 
             // connect oscillator to gain node to speakers
             this.gainNode.connect(this.audioCtx.destination);
-            this.gainNode.gain.value = 0.1;
+            this.gainNode.gain.value = this.volume;
         }
     }
-
-    // setVolume(volume: number) {
-    //     this.gainNode.
-    // }
 
     play(frequency: number | undefined) {
         if (frequency === undefined) {
@@ -56,18 +52,12 @@ export class Audio {
         return this.gainNode?.gain.value || 0;
     }
     setVolume(volume: number) {
+        this.volume = volume;
         if (this.gainNode !== undefined) {
             this.gainNode.gain.value = volume;
         }
     }
 }
 
-const audio = new Audio()
-
-export const AudioContext = React.createContext(audio);
-
-export const AudioProvider:  React.FC<{}> = props => (
-    <AudioContext.Provider value={audio}>{props.children}</AudioContext.Provider>
-);
-// to use...
-//export const useAudio =  React.useContext(AudioContext);
+// Single shared player; components read it with useContext(AudioPlayerContext)
+export const AudioPlayerContext = createContext(new Audio());
